@@ -17,7 +17,7 @@ void TcpServer::start()
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE; 
-    int status = getaddrinfo("localhost", this->_port.c_str(), &hints, &res);
+    int status = getaddrinfo(this->_ip.c_str(), this->_port.c_str(), &hints, &res);
     int yes=1;
     setsockopt(this->_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
@@ -33,32 +33,45 @@ void TcpServer::start()
 
 
     this->_connected = true;
+
+    char httpheader[8000]   = "HTTP/1.1 200 OK\r\n\n";
+    char msg[8000];
+    char line[100];
+    FILE* indexhtml = fopen("index.html", "r");
+
+    while(fgets(line, 100, indexhtml) != 0){
+        strcat(msg, line);
+    }
+    strcat(httpheader, msg);
+
     while(this->_connected){
         sockaddr_storage client_sockfd;
         memset(&client_sockfd, 0, sizeof(client_sockfd));
         uint32_t addr_size = sizeof(client_sockfd);
         int new_fd;
         char s[INET6_ADDRSTRLEN];
-        new_fd = accept(this->_socket, (struct sockaddr *) &client_sockfd, &addr_size);
-        inet_ntop(client_sockfd.ss_family, get_in_addr((struct sockaddr *)&client_sockfd), s, sizeof s);
+        new_fd = accept(this->_socket, NULL, NULL);
+
         printf("server: got connection from %s\n", s);
         if(new_fd == -1)
             perror("Unable to accept client connect: ");
 
-        char* msg = "Hello, World!";
-        int len, bytes_sent;
-        len = strlen(msg);
-        bytes_sent = send(new_fd, msg, len, 0);
+
+        int bytes_sent;
+        bytes_sent = send(new_fd, httpheader, sizeof(httpheader), 0);
         std::cout << "Bytes sent: " << bytes_sent << "\n";
+        close(new_fd);
     }
 
 }
 
-TcpServer::TcpServer(std::string ip, std::string port)
-{
-    this->_ip = ip;
-    this->_port = port;
+void TcpServer::stop(){
+    close(this->_socket);
+    this->_connected = false;
+
 }
+
+TcpServer::TcpServer(std::string ip, std::string port): _ip(ip), _port(port){}
 
 TcpServer::~TcpServer()
 {
