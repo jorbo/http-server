@@ -4,7 +4,7 @@
 
 int main(int argc, char** argv){
     
-    TcpServer server;
+    TcpServer server("localhost", "727");
     std::cout << server << "\n";
     server.start();
 
