@@ -18,6 +18,9 @@ class TcpServer {
         int _socket;
 
         bool _connected;
+
+        void serve_client();
+
         void *get_in_addr(struct sockaddr *sa)
 {
             if (sa->sa_family == AF_INET) {
