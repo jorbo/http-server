@@ -8,6 +8,8 @@
 #include <arpa/inet.h>
 #include <memory>
 #include <unistd.h>
+#include <thread>
+#include <utility>
 #include "tcp_server.h"
 void TcpServer::start()
 {
@@ -18,6 +20,7 @@ void TcpServer::start()
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE; 
     int status = getaddrinfo(this->_ip.c_str(), this->_port.c_str(), &hints, &res);
+
     int yes=1;
     setsockopt(this->_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
@@ -34,6 +37,14 @@ void TcpServer::start()
 
     this->_connected = true;
 
+
+
+    std::thread thread(&TcpServer::serve_client, this);
+    thread.join();
+
+}
+
+void TcpServer::serve_client(){
     char httpheader[8000]   = "HTTP/1.1 200 OK\r\n\n";
     char msg[8000];
     char line[100];
@@ -43,26 +54,20 @@ void TcpServer::start()
         strcat(msg, line);
     }
     strcat(httpheader, msg);
+    while(this->_connected){        
+        
+        int client_fd = accept(this->_socket, NULL, NULL);
 
-    while(this->_connected){
-        sockaddr_storage client_sockfd;
-        memset(&client_sockfd, 0, sizeof(client_sockfd));
-        uint32_t addr_size = sizeof(client_sockfd);
-        int new_fd;
-        char s[INET6_ADDRSTRLEN];
-        new_fd = accept(this->_socket, NULL, NULL);
-
-        printf("server: got connection from %s\n", s);
-        if(new_fd == -1)
+        if(client_fd == -1)
             perror("Unable to accept client connect: ");
 
 
         int bytes_sent;
-        bytes_sent = send(new_fd, httpheader, sizeof(httpheader), 0);
+        bytes_sent = send(client_fd, httpheader, sizeof(httpheader), 0);
         std::cout << "Bytes sent: " << bytes_sent << "\n";
-        close(new_fd);
+        close(client_fd);
+        std::cout << "Spawned thread"  << "\n";
     }
-
 }
 
 void TcpServer::stop(){
@@ -82,7 +87,7 @@ TcpServer::~TcpServer()
 
 std::ostream& operator<<(std::ostream &os, const TcpServer& tcp_server)
 {
-    os << "ip: " << tcp_server._ip << "\n" << "port: " << tcp_server._port;
+    os << "http://" << tcp_server._ip << ":" << tcp_server._port;
     return os;
 }
 
